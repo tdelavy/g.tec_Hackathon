@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>NeuroLoop · Electrode Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..900,0..100&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F4EFE2;
+    --paper-2:#EDE6D2;
+    --paper-3:#E5DCC0;
+    --ink:#191A23;
+    --ink-2:#3A3B47;
+    --ink-3:#6E6E78;
+    --pre:#C77B3D;
+    --post:#2D7A3E;
+    --compare-pos:#1F6D44;
+    --compare-neg:#A93226;
+    --accent:#3B2D5A;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden}
+  body{
+    font-family:"IBM Plex Sans",sans-serif;
+    background:
+      radial-gradient(ellipse 80% 60% at 30% 10%,#F8F3E5 0%,transparent 60%),
+      radial-gradient(ellipse 60% 80% at 90% 90%,#EBE3CA 0%,transparent 55%),
+      var(--paper);
+    color:var(--ink);
+    font-size:13px;
+    line-height:1.5;
+    letter-spacing:.01em;
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .07 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    mix-blend-mode:multiply;opacity:.6;
+  }
+  .app{
+    position:fixed;inset:0;display:grid;
+    grid-template-columns: 300px 1fr 340px;
+    grid-template-rows: 64px 1fr 88px;
+    grid-template-areas:
+      "head head head"
+      "left main right"
+      "left foot right";
+    z-index:2;
+  }
+
+  header{
+    grid-area:head;display:flex;align-items:center;justify-content:space-between;
+    padding:0 24px;border-bottom:1px solid rgba(25,26,35,.18);
+    background:linear-gradient(180deg,rgba(255,253,245,.7),rgba(255,253,245,0));
+  }
+  .brand{display:flex;align-items:baseline;gap:14px}
+  .brand .mark{
+    width:30px;height:30px;border-radius:50%;
+    background:radial-gradient(circle at 30% 30%,#3B2D5A,#191A23 70%);
+    box-shadow:inset 0 0 0 2px var(--paper),0 0 0 1px rgba(25,26,35,.6);
+    transform:translateY(6px);
+  }
+  .brand h1{
+    font-family:"Fraunces",serif;font-weight:400;
+    font-variation-settings:"opsz" 144,"SOFT" 30;
+    margin:0;font-size:22px;letter-spacing:-.01em;
+  }
+  .brand h1 em{font-style:italic;font-variation-settings:"opsz" 144,"SOFT" 100;color:var(--ink-2)}
+  .brand .sub{font-family:"IBM Plex Mono";font-size:10px;letter-spacing:.18em;color:var(--ink-3);text-transform:uppercase;margin-left:14px}
+  .head-meta{display:flex;gap:32px;align-items:center;font-family:"IBM Plex Mono";font-size:11px}
+  .head-meta .kv{display:flex;flex-direction:column;line-height:1.15}
+  .head-meta .kv .k{font-size:9px;letter-spacing:.18em;color:var(--ink-3);text-transform:uppercase}
+  .head-meta .kv .v{font-family:"Fraunces",serif;font-size:16px;font-weight:500;color:var(--ink)}
+  .pill{
+    border:1px solid var(--ink);padding:6px 10px;border-radius:999px;
+    font-family:"IBM Plex Mono";font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  }
+
+  .panel-left{
+    grid-area:left;border-right:1px solid rgba(25,26,35,.18);
+    padding:18px 22px;display:flex;flex-direction:column;gap:18px;overflow:hidden;
+  }
+  .panel-right{
+    grid-area:right;border-left:1px solid rgba(25,26,35,.18);
+    padding:18px 22px;display:flex;flex-direction:column;gap:14px;overflow:hidden;
+  }
+  .label{
+    font-family:"IBM Plex Mono";font-size:9.5px;letter-spacing:.22em;
+    color:var(--ink-3);text-transform:uppercase;margin:0 0 8px;
+  }
+  .seg{
+    display:flex;background:var(--paper-2);border:1px solid rgba(25,26,35,.18);
+    border-radius:10px;padding:3px;gap:2px;
+  }
+  .seg button{
+    flex:1;border:0;background:transparent;padding:8px 4px;cursor:pointer;
+    font-family:"IBM Plex Sans";font-weight:500;font-size:12px;color:var(--ink-2);
+    border-radius:7px;letter-spacing:.04em;transition:all .25s ease;
+  }
+  .seg button:hover{color:var(--ink)}
+  .seg button.on{background:var(--ink);color:var(--paper);}
+  .seg.mode button.on[data-mode="pre"]{background:var(--pre)}
+  .seg.mode button.on[data-mode="post"]{background:var(--post)}
+  .seg.mode button.on[data-mode="compare"]{background:var(--accent)}
+
+  .kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .kpi{
+    background:var(--paper-2);border:1px solid rgba(25,26,35,.14);
+    border-radius:10px;padding:10px 12px;
+  }
+  .kpi .k{font-family:"IBM Plex Mono";font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3)}
+  .kpi .v{font-family:"Fraunces",serif;font-size:22px;font-weight:500;letter-spacing:-.01em;margin-top:2px;line-height:1}
+  .kpi .v.pre{color:var(--pre)}
+  .kpi .v.post{color:var(--post)}
+
+  .legend{
+    border:1px solid rgba(25,26,35,.18);border-radius:12px;
+    padding:12px 14px;background:rgba(255,253,245,.5);
+  }
+  .ramp{height:10px;border-radius:6px;margin:6px 0 4px;background:linear-gradient(90deg,#E9E2CB,#F2E2C2,#E8B25A,#C75D2C,#7A1F18)}
+  .ramp.div{background:linear-gradient(90deg,#A93226,#D9C4A0,#F4EFE2,#A8C9A8,#1F6D44)}
+  .ramp-axis{display:flex;justify-content:space-between;font-family:"IBM Plex Mono";font-size:9.5px;color:var(--ink-3)}
+
+  .ranks{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+  .rank{
+    display:grid;grid-template-columns:18px 46px 1fr 56px;align-items:center;gap:8px;
+    font-family:"IBM Plex Mono";font-size:11px;cursor:pointer;
+    padding:5px 7px;border-radius:6px;transition:background .2s;
+  }
+  .rank:hover{background:var(--paper-2)}
+  .rank .idx{color:var(--ink-3);font-size:9px;letter-spacing:.1em}
+  .rank .ch{font-weight:500;color:var(--ink)}
+  .rank .bar{height:6px;background:var(--paper-3);border-radius:3px;overflow:hidden;position:relative}
+  .rank .bar i{display:block;height:100%;border-radius:3px}
+  .rank .val{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+
+  main{
+    grid-area:main;position:relative;
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+  }
+  .stage{
+    position:relative;width:min(100%,720px);aspect-ratio:1.1/1;
+  }
+  .stage-title{
+    position:absolute;top:8px;left:50%;transform:translateX(-50%);
+    font-family:"Fraunces",serif;font-style:italic;font-weight:300;
+    font-size:13px;color:var(--ink-3);letter-spacing:.02em;
+    white-space:nowrap;
+  }
+  .stage-meta{
+    position:absolute;bottom:6px;left:50%;transform:translateX(-50%);
+    font-family:"IBM Plex Mono";font-size:10px;letter-spacing:.16em;color:var(--ink-3);
+    text-transform:uppercase;
+  }
+  svg.head{width:100%;height:100%;display:block;overflow:visible}
+
+  .electrode-label{font-family:"IBM Plex Mono";font-size:8.5px;font-weight:500;fill:var(--ink-2);text-anchor:middle;dominant-baseline:central;pointer-events:none}
+  .electrode-label.active{fill:var(--paper);font-weight:500}
+  .electrode-label.muted{fill:var(--ink-3);opacity:.55}
+  .electrode-ring{fill:rgba(255,253,245,.85);stroke:rgba(25,26,35,.5);stroke-width:.7;cursor:pointer;transition:transform .25s,filter .25s}
+  .electrode-ring.muted{stroke-dasharray:2 2;opacity:.55}
+  .electrode-active{cursor:pointer;transition:filter .25s,r .35s,fill .35s}
+  .electrode-active:hover{filter:drop-shadow(0 4px 10px rgba(25,26,35,.25))}
+  .selected-halo{fill:none;stroke:var(--ink);stroke-width:1.2;opacity:.85;pointer-events:none}
+
+  .head-shell{fill:rgba(255,253,245,.4);stroke:var(--ink);stroke-width:1.4}
+  .nose{fill:rgba(255,253,245,.6);stroke:var(--ink);stroke-width:1.4;stroke-linejoin:round}
+  .ear{fill:rgba(255,253,245,.4);stroke:var(--ink);stroke-width:1.2}
+  .axis{stroke:rgba(25,26,35,.18);stroke-width:.6;stroke-dasharray:2 3}
+
+  footer{
+    grid-area:foot;border-top:1px solid rgba(25,26,35,.18);
+    display:grid;grid-template-columns:repeat(4,1fr);
+  }
+  .fcell{padding:14px 22px;border-right:1px solid rgba(25,26,35,.12)}
+  .fcell:last-child{border-right:0}
+  .fcell .k{font-family:"IBM Plex Mono";font-size:9px;letter-spacing:.22em;color:var(--ink-3);text-transform:uppercase}
+  .fcell .v{font-family:"Fraunces",serif;font-size:18px;font-weight:500;letter-spacing:-.01em;line-height:1.1;margin-top:4px}
+  .fcell .sub{font-family:"IBM Plex Mono";font-size:10px;color:var(--ink-3);margin-top:2px}
+
+  .detail-head{
+    display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    border-bottom:1px solid rgba(25,26,35,.18);padding-bottom:12px;
+  }
+  .detail-head .ch{font-family:"Fraunces",serif;font-size:42px;font-weight:400;letter-spacing:-.02em;line-height:1}
+  .detail-head .meta{text-align:right}
+  .detail-head .meta .idx{font-family:"IBM Plex Mono";font-size:10px;letter-spacing:.18em;color:var(--ink-3);text-transform:uppercase}
+  .detail-head .meta .area{font-family:"Fraunces",serif;font-style:italic;font-size:13px;color:var(--ink-2)}
+
+  .pp-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .pp-card{
+    border:1px solid rgba(25,26,35,.18);border-radius:10px;
+    padding:10px 12px;background:rgba(255,253,245,.5);
+  }
+  .pp-card .lbl{font-family:"IBM Plex Mono";font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3)}
+  .pp-card .num{font-family:"Fraunces",serif;font-size:28px;font-weight:500;line-height:1;margin-top:2px;letter-spacing:-.02em}
+  .pp-card .num.pre{color:var(--pre)}
+  .pp-card .num.post{color:var(--post)}
+  .pp-card .unit{font-family:"IBM Plex Mono";font-size:10px;color:var(--ink-3);margin-left:2px;font-weight:400}
+  .pp-card .sub{font-family:"IBM Plex Mono";font-size:10px;color:var(--ink-3);margin-top:4px}
+
+  .delta{
+    border:1px solid rgba(25,26,35,.18);border-radius:10px;padding:10px 12px;
+    display:flex;align-items:baseline;justify-content:space-between;gap:6px;
+    background:rgba(255,253,245,.5);
+  }
+  .delta .lbl{font-family:"IBM Plex Mono";font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3)}
+  .delta .num{font-family:"Fraunces",serif;font-size:24px;font-weight:500;letter-spacing:-.02em}
+  .delta .num.pos{color:var(--compare-pos)}
+  .delta .num.neg{color:var(--compare-neg)}
+  .delta .arrow{font-family:"Fraunces",serif;font-size:18px;}
+
+  .narrative{
+    font-family:"Fraunces",serif;font-style:italic;font-size:13px;
+    color:var(--ink-2);line-height:1.45;border-left:1px solid var(--ink);
+    padding:6px 0 6px 12px;
+  }
+
+  .scroll{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:10px;min-height:0}
+  .ranks-wrap{flex:1;display:flex;flex-direction:column;min-height:0}
+  .ranks-list{overflow-y:auto;padding-right:4px;flex:1}
+  .ranks-list::-webkit-scrollbar{width:5px}
+  .ranks-list::-webkit-scrollbar-thumb{background:rgba(25,26,35,.2);border-radius:3px}
+
+  @keyframes fadeInUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .fade{animation:fadeInUp .55s ease both}
+  .delay-1{animation-delay:.05s}.delay-2{animation-delay:.10s}.delay-3{animation-delay:.15s}
+  .delay-4{animation-delay:.20s}.delay-5{animation-delay:.25s}
+
+  .hint{font-family:"IBM Plex Mono";font-size:10px;color:var(--ink-3);letter-spacing:.04em}
+  .divider{height:1px;background:rgba(25,26,35,.14);margin:2px 0}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="brand">
+      <span class="mark"></span>
+      <h1>Neuro<em>Loop</em> · BCI Decoder Contribution Map</h1>
+    </div>
+    <div class="head-meta">
+      <div class="kv"><span class="k">Patient</span><span class="v" id="hm-patient">P1</span></div>
+      <div class="kv"><span class="k">Session</span><span class="v" id="hm-session">PRE</span></div>
+      <div class="kv"><span class="k">Top Electrode</span><span class="v" id="hm-top">FCz</span></div>
+    </div>
+  </header>
+
+  <aside class="panel-left">
+    <div class="fade delay-1">
+      <p class="label">Patient</p>
+      <div class="seg" id="seg-patient">
+        <button data-p="P1" class="on">P1</button>
+        <button data-p="P2">P2</button>
+        <button data-p="P3">P3</button>
+      </div>
+    </div>
+
+    <div class="fade delay-2">
+      <p class="label">Session view</p>
+      <div class="seg mode" id="seg-mode">
+        <button data-mode="pre" class="on">Pre</button>
+        <button data-mode="post">Post</button>
+        <button data-mode="compare">Compare</button>
+      </div>
+    </div>
+
+    <div class="fade delay-3">
+      <p class="label">Decoding overall accuracy</p>
+      <div class="kpi-row">
+        <div class="kpi"><div class="k">Pre</div><div class="v pre" id="kpi-pre">—</div></div>
+        <div class="kpi"><div class="k">Post</div><div class="v post" id="kpi-post">—</div></div>
+      </div>
+    </div>
+
+    <div class="fade delay-4 legend">
+      <p class="label" id="lg-label">Channel contribution</p>
+      <div class="ramp" id="lg-ramp"></div>
+      <div class="ramp-axis"><span id="lg-min">0</span><span id="lg-mid">·</span><span id="lg-max">+40 pp</span></div>
+      <div class="divider" style="margin:10px 0"></div>
+      <div class="hint">
+        Contribution = drop in decoding accuracy when a channel is shuffled.
+        Higher = the classifier relies more on that electrode.
+      </div>
+    </div>
+
+  </aside>
+
+  <main>
+    <div class="stage">
+      <div class="stage-title" id="stage-title">Hover an electrode to inspect.</div>
+      <svg class="head" viewBox="0 0 760 700" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="electrodeShine" cx="35%" cy="30%" r="65%">
+            <stop offset="0%" stop-color="rgba(255,255,255,.55)"/>
+            <stop offset="60%" stop-color="rgba(255,255,255,0)"/>
+          </radialGradient>
+          <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3"/>
+          </filter>
+          <clipPath id="headClip">
+            <ellipse cx="380" cy="370" rx="320" ry="300"/>
+          </clipPath>
+        </defs>
+        <foreignObject x="60" y="70" width="640" height="600" clip-path="url(#headClip)">
+          <canvas id="topo" width="640" height="600" style="width:100%;height:100%;display:block"></canvas>
+        </foreignObject>
+        <g id="anatomy">
+          <ellipse class="head-shell" cx="380" cy="370" rx="320" ry="300"/>
+          <path class="nose" d="M 350 78 L 380 30 L 410 78 Z"/>
+          <path class="ear" d="M 60 360 q -22 -6 -22 30 q 0 36 22 30 z"/>
+          <path class="ear" d="M 700 360 q 22 -6 22 30 q 0 36 -22 30 z"/>
+          <line class="axis" x1="380" y1="70" x2="380" y2="670"/>
+          <line class="axis" x1="60" y1="370" x2="700" y2="370"/>
+        </g>
+        <g id="electrodes"></g>
+        <g id="active-electrodes"></g>
+      </svg>
+      <div class="stage-meta" id="stage-meta">PATIENT P1 · PRE · 16 RECORDED CHANNELS</div>
+    </div>
+  </main>
+
+  <aside class="panel-right">
+    <div class="detail-head fade delay-1">
+      <div class="ch" id="dt-channel">FCz</div>
+      <div class="meta">
+        <div class="idx" id="dt-idx">CH 02</div>
+        <div class="area" id="dt-area">supplementary motor</div>
+      </div>
+    </div>
+
+    <div class="pp-row fade delay-2">
+      <div class="pp-card">
+        <div class="lbl">Pre · Δpp</div>
+        <div class="num pre"><span id="dt-pre">33.8</span><span class="unit"> pp</span></div>
+        <div class="sub" id="dt-pre-sub">norm 1.00</div>
+      </div>
+      <div class="pp-card">
+        <div class="lbl">Post · Δpp</div>
+        <div class="num post"><span id="dt-post">28.7</span><span class="unit"> pp</span></div>
+        <div class="sub" id="dt-post-sub">norm 0.73</div>
+      </div>
+    </div>
+
+    <div class="delta fade delay-3">
+      <div>
+        <div class="lbl">Compare</div>
+        <div class="num" id="dt-delta">−5.04 pp</div>
+      </div>
+      <div class="arrow" id="dt-arrow">↘</div>
+    </div>
+
+    <div class="narrative fade delay-4" id="dt-narrative">
+      Selecting an electrode reveals its trial-shuffling importance and how it shifted from PRE to POST.
+    </div>
+
+    <div class="scroll fade delay-5">
+      <div style="display:flex;align-items:baseline;justify-content:space-between">
+        <p class="label" style="margin:0">Top contributors</p>
+        <span class="hint" id="rk-mode-label">PRE</span>
+      </div>
+      <div class="ranks-wrap">
+        <div class="ranks-list">
+          <div class="ranks" id="ranks"></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <footer>
+    <div class="fcell">
+      <div class="k">Pipeline</div>
+      <div class="v">Fixed CSP + LDA</div>
+      <div class="sub">8–30 Hz · 2–8 s · k=4</div>
+    </div>
+    <div class="fcell">
+      <div class="k">Importance method</div>
+      <div class="v">Per-channel shuffle</div>
+      <div class="sub">n = 30 reps · ΔAcc</div>
+    </div>
+    <div class="fcell">
+      <div class="k">Active region</div>
+      <div class="v">Sensorimotor strip</div>
+      <div class="sub">FC · C · CP · Pz · 16 ch</div>
+    </div>
+    <div class="fcell">
+      <div class="k">Cohort</div>
+      <div class="v">3 patients · pre/post</div>
+      <div class="sub">decoding ≠ recovery</div>
+    </div>
+  </footer>
+</div>
+
+<script>
+const HEAD = {cx:380, cy:370, rx:320, ry:300};
+const toCanvas = (x,y) => [HEAD.cx + x*HEAD.rx*0.92, HEAD.cy + y*HEAD.ry*0.92];
+
+const POS = {
+  Fpz:[0,-0.84], Fp1:[-0.18,-0.82], Fp2:[0.18,-0.82],
+  AFz:[0,-0.66], AF3:[-0.20,-0.66], AF4:[0.20,-0.66], AF7:[-0.40,-0.66], AF8:[0.40,-0.66],
+  Fz:[0,-0.46], F1:[-0.13,-0.46], F2:[0.13,-0.46], F3:[-0.27,-0.47], F4:[0.27,-0.47],
+  F5:[-0.42,-0.50], F6:[0.42,-0.50], F7:[-0.58,-0.55], F8:[0.58,-0.55],
+  F9:[-0.78,-0.55], F10:[0.78,-0.55],
+  FCz:[0,-0.23], FC1:[-0.15,-0.24], FC2:[0.15,-0.24],
+  FC3:[-0.30,-0.25], FC4:[0.30,-0.25], FC5:[-0.46,-0.27], FC6:[0.46,-0.27],
+  FT7:[-0.63,-0.30], FT8:[0.63,-0.30], FT9:[-0.83,-0.30], FT10:[0.83,-0.30],
+  Cz:[0,0],
+  C1:[-0.16,0], C2:[0.16,0], C3:[-0.32,0], C4:[0.32,0],
+  C5:[-0.49,0], C6:[0.49,0], T7:[-0.65,0], T8:[0.65,0],
+  T9:[-0.85,0], T10:[0.85,0],
+  CPz:[0,0.22], CP1:[-0.15,0.22], CP2:[0.15,0.22],
+  CP3:[-0.30,0.23], CP4:[0.30,0.23], CP5:[-0.46,0.25], CP6:[0.46,0.25],
+  TP7:[-0.63,0.28], TP8:[0.63,0.28], TP9:[-0.83,0.28], TP10:[0.83,0.28],
+  Pz:[0,0.43], P1:[-0.13,0.43], P2:[0.13,0.43], P3:[-0.27,0.44], P4:[0.27,0.44],
+  P5:[-0.42,0.46], P6:[0.42,0.46], P7:[-0.58,0.50], P8:[0.58,0.50],
+  P9:[-0.78,0.52], P10:[0.78,0.52],
+  POz:[0,0.61], PO3:[-0.18,0.61], PO4:[0.18,0.61], PO7:[-0.36,0.62], PO8:[0.36,0.62],
+  Oz:[0,0.78], O1:[-0.18,0.78], O2:[0.18,0.78]
+};
+
+const ACTIVE = ["FC3","FCz","FC4","C5","C3","C1","Cz","C2","C4","C6","CP3","CP1","CPz","CP2","CP4","Pz"];
+
+const AREA = {
+  FC3:"left premotor", FCz:"supplementary motor", FC4:"right premotor",
+  C5:"left lateral motor", C3:"left primary motor (M1)", C1:"left medial motor",
+  Cz:"vertex / leg M1", C2:"right medial motor", C4:"right primary motor (M1)", C6:"right lateral motor",
+  CP3:"left somatosensory", CP1:"left medial S1", CPz:"central S1",
+  CP2:"right medial S1", CP4:"right somatosensory", Pz:"medial parietal"
+};
+
+const EMBEDDED_DATA = [{"subject":"P1","channel":"FC3","channel_index":1,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":31.583333333333336,"contribution_pp_positive_post":37.416666666666664,"contribution_norm_pre":0.9346485819975341,"contribution_norm_post":0.9502645502645503,"contribution_change_pp":5.833333333333329},{"subject":"P1","channel":"FCz","channel_index":2,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":33.791666666666664,"contribution_pp_positive_post":28.749999999999993,"contribution_norm_pre":1.0,"contribution_norm_post":0.73015873015873,"contribution_change_pp":-5.041666666666671},{"subject":"P1","channel":"FC4","channel_index":3,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":32.16666666666667,"contribution_pp_positive_post":14.583333333333329,"contribution_norm_pre":0.9519112207151667,"contribution_norm_post":0.37037037037037024,"contribution_change_pp":-17.583333333333343},{"subject":"P1","channel":"C5","channel_index":4,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":31.833333333333343,"contribution_pp_positive_post":29.041666666666664,"contribution_norm_pre":0.9420468557336625,"contribution_norm_post":0.7375661375661375,"contribution_change_pp":-2.7916666666666785},{"subject":"P1","channel":"C3","channel_index":5,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":9.499999999999986,"contribution_pp_positive_post":30.0,"contribution_norm_pre":0.2811344019728726,"contribution_norm_post":0.7619047619047619,"contribution_change_pp":20.500000000000014},{"subject":"P1","channel":"C1","channel_index":6,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":28.333333333333336,"contribution_pp_positive_post":39.375,"contribution_norm_pre":0.838471023427867,"contribution_norm_post":1.0,"contribution_change_pp":11.041666666666664},{"subject":"P1","channel":"Cz","channel_index":7,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":32.20833333333333,"contribution_pp_positive_post":39.33333333333335,"contribution_norm_pre":0.9531442663378544,"contribution_norm_post":0.9989417989417994,"contribution_change_pp":7.125000000000021},{"subject":"P1","channel":"C2","channel_index":8,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":26.499999999999993,"contribution_pp_positive_post":15.958333333333343,"contribution_norm_pre":0.7842170160295929,"contribution_norm_post":0.40529100529100553,"contribution_change_pp":-10.54166666666665},{"subject":"P1","channel":"C4","channel_index":9,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":31.875000000000014,"contribution_pp_positive_post":34.12499999999999,"contribution_norm_pre":0.9432799013563506,"contribution_norm_post":0.8666666666666665,"contribution_change_pp":2.2499999999999787},{"subject":"P1","channel":"C6","channel_index":10,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":30.0,"contribution_pp_positive_post":3.666666666666643,"contribution_norm_pre":0.8877928483353885,"contribution_norm_post":0.09312169312169252,"contribution_change_pp":-26.333333333333357},{"subject":"P1","channel":"CP3","channel_index":11,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":32.33333333333333,"contribution_pp_positive_post":37.12500000000001,"contribution_norm_pre":0.9568434032059185,"contribution_norm_post":0.9428571428571431,"contribution_change_pp":4.7916666666666785},{"subject":"P1","channel":"CP1","channel_index":12,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":0.0,"contribution_pp_positive_post":39.20833333333333,"contribution_norm_pre":0.0,"contribution_norm_post":0.9957671957671956,"contribution_change_pp":46.16666666666663},{"subject":"P1","channel":"CPz","channel_index":13,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":21.916666666666664,"contribution_pp_positive_post":25.08333333333333,"contribution_norm_pre":0.6485819975339088,"contribution_norm_post":0.637037037037037,"contribution_change_pp":3.1666666666666643},{"subject":"P1","channel":"CP2","channel_index":14,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":0.0,"contribution_pp_positive_post":6.666666666666657,"contribution_norm_pre":0.0,"contribution_norm_post":0.16931216931216908,"contribution_change_pp":12.208333333333329},{"subject":"P1","channel":"CP4","channel_index":15,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":31.958333333333336,"contribution_pp_positive_post":0.20833333333335702,"contribution_norm_pre":0.9457459926017264,"contribution_norm_post":0.005291005291005893,"contribution_change_pp":-31.74999999999998},{"subject":"P1","channel":"Pz","channel_index":16,"baseline_accuracy_percent_pre":82.5,"baseline_accuracy_percent_post":90.0,"contribution_pp_positive_pre":0.0,"contribution_pp_positive_post":35.916666666666664,"contribution_norm_pre":0.0,"contribution_norm_post":0.9121693121693121,"contribution_change_pp":40.04166666666668},{"subject":"P2","channel":"FC3","channel_index":1,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":9.124999999999986,"contribution_pp_positive_post":0.08333333333335702,"contribution_norm_pre":0.45624999999999927,"contribution_norm_post":0.0019249278152074767,"contribution_change_pp":-9.041666666666629},{"subject":"P2","channel":"FCz","channel_index":2,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":19.750000000000007,"contribution_pp_positive_post":43.16666666666668,"contribution_norm_pre":0.9875000000000004,"contribution_norm_post":0.9971126082771897,"contribution_change_pp":23.41666666666667},{"subject":"P2","channel":"FC4","channel_index":3,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":19.750000000000007,"contribution_pp_positive_post":43.29166666666667,"contribution_norm_pre":0.9875000000000004,"contribution_norm_post":1.0,"contribution_change_pp":23.541666666666664},{"subject":"P2","channel":"C5","channel_index":4,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":19.916666666666664,"contribution_pp_positive_post":25.666666666666657,"contribution_norm_pre":0.9958333333333332,"contribution_norm_post":0.5928777670837341,"contribution_change_pp":5.749999999999993},{"subject":"P2","channel":"C3","channel_index":5,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":0.0,"contribution_pp_positive_post":16.249999999999986,"contribution_norm_pre":0.0,"contribution_norm_post":0.3753609239653509,"contribution_change_pp":19.958333333333314},{"subject":"P2","channel":"C1","channel_index":6,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":15.791666666666664,"contribution_pp_positive_post":43.125000000000014,"contribution_norm_pre":0.7895833333333332,"contribution_norm_post":0.9961501443695864,"contribution_change_pp":27.33333333333335},{"subject":"P2","channel":"Cz","channel_index":7,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":19.708333333333343,"contribution_pp_positive_post":43.29166666666667,"contribution_norm_pre":0.9854166666666672,"contribution_norm_post":1.0,"contribution_change_pp":23.58333333333333},{"subject":"P2","channel":"C2","channel_index":8,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":20.0,"contribution_pp_positive_post":43.208333333333336,"contribution_norm_pre":1.0,"contribution_norm_post":0.998075072184793,"contribution_change_pp":23.208333333333336},{"subject":"P2","channel":"C4","channel_index":9,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":19.70833333333333,"contribution_pp_positive_post":36.45833333333333,"contribution_norm_pre":0.9854166666666664,"contribution_norm_post":0.8421559191530316,"contribution_change_pp":16.75},{"subject":"P2","channel":"C6","channel_index":10,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":3.125,"contribution_pp_positive_post":43.125000000000014,"contribution_norm_pre":0.15625,"contribution_norm_post":0.9961501443695864,"contribution_change_pp":40.000000000000014},{"subject":"P2","channel":"CP3","channel_index":11,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":2.125000000000014,"contribution_pp_positive_post":25.91666666666667,"contribution_norm_pre":0.1062500000000007,"contribution_norm_post":0.5986525505293552,"contribution_change_pp":23.791666666666657},{"subject":"P2","channel":"CP1","channel_index":12,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":0.0,"contribution_pp_positive_post":3.625000000000014,"contribution_norm_pre":0.0,"contribution_norm_post":0.08373435996150176,"contribution_change_pp":7.250000000000014},{"subject":"P2","channel":"CPz","channel_index":13,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":4.833333333333329,"contribution_pp_positive_post":42.95833333333334,"contribution_norm_pre":0.24166666666666642,"contribution_norm_post":0.9923002887391724,"contribution_change_pp":38.125000000000014},{"subject":"P2","channel":"CP2","channel_index":14,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":19.791666666666664,"contribution_pp_positive_post":43.208333333333336,"contribution_norm_pre":0.9895833333333333,"contribution_norm_post":0.998075072184793,"contribution_change_pp":23.41666666666667},{"subject":"P2","channel":"CP4","channel_index":15,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":14.666666666666664,"contribution_pp_positive_post":17.2916666666667,"contribution_norm_pre":0.7333333333333332,"contribution_norm_post":0.3994225216554386,"contribution_change_pp":2.6250000000000355},{"subject":"P2","channel":"Pz","channel_index":16,"baseline_accuracy_percent_pre":70.0,"baseline_accuracy_percent_post":93.75,"contribution_pp_positive_pre":19.291666666666664,"contribution_pp_positive_post":3.458333333333343,"contribution_norm_pre":0.9645833333333332,"contribution_norm_post":0.07988450433108779,"contribution_change_pp":-15.833333333333321},{"subject":"P3","channel":"FC3","channel_index":1,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":0.0,"contribution_pp_positive_post":3.916666666666657,"contribution_norm_pre":0.0,"contribution_norm_post":0.0873605947955388,"contribution_change_pp":10.208333333333314},{"subject":"P3","channel":"FCz","channel_index":2,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":11.875000000000014,"contribution_pp_positive_post":44.20833333333333,"contribution_norm_pre":0.3184357541899445,"contribution_norm_post":0.986059479553903,"contribution_change_pp":32.333333333333314},{"subject":"P3","channel":"FC4","channel_index":3,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":0.0,"contribution_pp_positive_post":35.833333333333336,"contribution_norm_pre":0.0,"contribution_norm_post":0.7992565055762081,"contribution_change_pp":42.541666666666664},{"subject":"P3","channel":"C5","channel_index":4,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":4.583333333333357,"contribution_pp_positive_post":44.5,"contribution_norm_pre":0.12290502793296154,"contribution_norm_post":0.9925650557620815,"contribution_change_pp":39.91666666666664},{"subject":"P3","channel":"C3","channel_index":5,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":27.29166666666667,"contribution_pp_positive_post":23.16666666666667,"contribution_norm_pre":0.7318435754189946,"contribution_norm_post":0.516728624535316,"contribution_change_pp":-4.125},{"subject":"P3","channel":"C1","channel_index":6,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":5.874999999999972,"contribution_pp_positive_post":2.842170943040401e-14,"contribution_norm_pre":0.15754189944134003,"contribution_norm_post":6.339414742841041e-16,"contribution_change_pp":-5.874999999999943},{"subject":"P3","channel":"Cz","channel_index":7,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":37.291666666666664,"contribution_pp_positive_post":44.83333333333334,"contribution_norm_pre":1.0,"contribution_norm_post":1.0,"contribution_change_pp":7.5416666666666785},{"subject":"P3","channel":"C2","channel_index":8,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":34.83333333333333,"contribution_pp_positive_post":41.833333333333336,"contribution_norm_pre":0.9340782122905027,"contribution_norm_post":0.933085501858736,"contribution_change_pp":7.000000000000007},{"subject":"P3","channel":"C4","channel_index":9,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":36.958333333333336,"contribution_pp_positive_post":44.625,"contribution_norm_pre":0.9910614525139666,"contribution_norm_post":0.9953531598513009,"contribution_change_pp":7.666666666666664},{"subject":"P3","channel":"C6","channel_index":10,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":0.0,"contribution_pp_positive_post":44.458333333333336,"contribution_norm_pre":0.0,"contribution_norm_post":0.9916356877323419,"contribution_change_pp":50.25000000000001},{"subject":"P3","channel":"CP3","channel_index":11,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":36.91666666666668,"contribution_pp_positive_post":44.33333333333334,"contribution_norm_pre":0.9899441340782127,"contribution_norm_post":0.9888475836431226,"contribution_change_pp":7.416666666666664},{"subject":"P3","channel":"CP1","channel_index":12,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":32.333333333333336,"contribution_pp_positive_post":4.041666666666671,"contribution_norm_pre":0.8670391061452515,"contribution_norm_post":0.09014869888475845,"contribution_change_pp":-28.291666666666664},{"subject":"P3","channel":"CPz","channel_index":13,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":26.83333333333332,"contribution_pp_positive_post":0.8750000000000142,"contribution_norm_pre":0.719553072625698,"contribution_norm_post":0.01951672862453563,"contribution_change_pp":-25.958333333333307},{"subject":"P3","channel":"CP2","channel_index":14,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":28.125000000000014,"contribution_pp_positive_post":19.25,"contribution_norm_pre":0.7541899441340787,"contribution_norm_post":0.42936802973977684,"contribution_change_pp":-8.875000000000014},{"subject":"P3","channel":"CP4","channel_index":15,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":2.166666666666657,"contribution_pp_positive_post":41.62500000000001,"contribution_norm_pre":0.05810055865921763,"contribution_norm_post":0.9284386617100371,"contribution_change_pp":39.45833333333335},{"subject":"P3","channel":"Pz","channel_index":16,"baseline_accuracy_percent_pre":87.5,"baseline_accuracy_percent_post":95.0,"contribution_pp_positive_pre":29.875000000000007,"contribution_pp_positive_post":44.458333333333336,"contribution_norm_pre":0.8011173184357544,"contribution_norm_post":0.9916356877323419,"contribution_change_pp":14.583333333333329}];
+
+let DATA = EMBEDDED_DATA;
+async function loadData(){
+  try{
+    const res = await fetch("./contributions.json");
+    if(res.ok) DATA = await res.json();
+  }catch(e){ /* keep embedded */ }
+  return DATA;
+}
+
+let state = {patient:"P1", mode:"pre", selected:"FCz"};
+
+function lerp(a,b,t){return a+(b-a)*t}
+function lerpC(c1,c2,t){return c1.map((v,i)=>Math.round(lerp(v,c2[i],t)))}
+function rgb(c){return `rgb(${c[0]},${c[1]},${c[2]})`}
+function rgba(c,a){return `rgba(${c[0]},${c[1]},${c[2]},${a})`}
+const SEQ = [[233,226,203],[242,226,194],[232,178,90],[199,93,44],[122,31,24]];
+const DIV = [[169,50,38],[217,196,160],[244,239,226],[168,201,168],[31,109,68]];
+function rampSeq(t){
+  t = Math.max(0,Math.min(1,t));
+  const seg=(SEQ.length-1)*t,i=Math.floor(seg),f=seg-i;
+  if(i>=SEQ.length-1) return SEQ[SEQ.length-1];
+  return lerpC(SEQ[i],SEQ[i+1],f);
+}
+function rampDiv(t){
+  const u=Math.max(0,Math.min(1,(t+1)/2));
+  const seg=(DIV.length-1)*u,i=Math.floor(seg),f=seg-i;
+  if(i>=DIV.length-1) return DIV[DIV.length-1];
+  return lerpC(DIV[i],DIV[i+1],f);
+}
+
+function rowsForPatient(p){return DATA.filter(d=>d.subject===p)}
+function valueFor(row, mode){
+  if(mode==="pre") return row.contribution_pp_positive_pre;
+  if(mode==="post") return row.contribution_pp_positive_post;
+  return row.contribution_change_pp;
+}
+
+function svgEl(tag, attrs){
+  const e = document.createElementNS("http://www.w3.org/2000/svg",tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+function buildBaseElectrodes(){
+  const g = document.getElementById("electrodes");
+  g.replaceChildren();
+  Object.keys(POS).forEach(name=>{
+    const [x,y] = toCanvas(...POS[name]);
+    const isActive = ACTIVE.includes(name);
+    const r = isActive ? 18 : 13;
+    const ring = svgEl("circle",{cx:x,cy:y,r,class: isActive?"electrode-ring":"electrode-ring muted"});
+    g.appendChild(ring);
+    if(!isActive){
+      const t = svgEl("text",{x,y,class:"electrode-label muted"});
+      t.textContent = name;
+      g.appendChild(t);
+    }
+  });
+}
+
+function renderActive(){
+  const g = document.getElementById("active-electrodes");
+  g.replaceChildren();
+  const rows = rowsForPatient(state.patient);
+  const vals = rows.map(r=>valueFor(r,state.mode));
+  const absMax = Math.max(...vals.map(Math.abs), 1e-6);
+  const seqMax = Math.max(...vals, 1e-6);
+
+  rows.forEach(r=>{
+    const [x,y] = toCanvas(...POS[r.channel]);
+    const v = valueFor(r,state.mode);
+    let color;
+    if(state.mode==="compare") color = rampDiv(v/absMax);
+    else color = rampSeq(Math.max(0,v)/seqMax);
+    const radius = 18 + 10 * Math.min(1, Math.abs(v)/absMax);
+
+    g.appendChild(svgEl("circle",{cx:x,cy:y,r:radius+8,fill:rgba(color,0.18),filter:"url(#softShadow)"}));
+    const c = svgEl("circle",{cx:x,cy:y,r:radius,fill:rgb(color),stroke:"rgba(25,26,35,.65)","stroke-width":"0.8",class:"electrode-active","data-ch":r.channel});
+    g.appendChild(c);
+    g.appendChild(svgEl("circle",{cx:x,cy:y,r:radius,fill:"url(#electrodeShine)","pointer-events":"none"}));
+
+    const lum = 0.299*color[0]+0.587*color[1]+0.114*color[2];
+    const t = svgEl("text",{x,y,class:"electrode-label "+(lum<150?"active":"")});
+    t.textContent = r.channel;
+    g.appendChild(t);
+
+    if(state.selected===r.channel){
+      g.appendChild(svgEl("circle",{cx:x,cy:y,r:radius+4,class:"selected-halo"}));
+    }
+    c.addEventListener("mouseenter",()=>setSelected(r.channel));
+    c.addEventListener("click",()=>{ state.selected=r.channel; renderAll() });
+  });
+}
+
+function renderTopo(){
+  const cnv = document.getElementById("topo");
+  const ctx = cnv.getContext("2d");
+  const W = cnv.width, H = cnv.height;
+  ctx.clearRect(0,0,W,H);
+  const sx = (px)=> 60 + px*(640/W);
+  const sy = (py)=> 70 + py*(600/H);
+  const rows = rowsForPatient(state.patient);
+  const vals = rows.map(r=>valueFor(r,state.mode));
+  const absMax = Math.max(...vals.map(Math.abs), 1e-6);
+  const seqMax = Math.max(...vals, 1e-6);
+
+  const points = rows.map(r=>{
+    const [x,y] = toCanvas(...POS[r.channel]);
+    return {x,y,v:valueFor(r,state.mode)};
+  });
+
+  const img = ctx.createImageData(W,H);
+  const power = 3;
+  const cx = HEAD.cx, cy = HEAD.cy, rx = HEAD.rx-2, ry = HEAD.ry-2;
+
+  for(let py=0;py<H;py+=2){
+    for(let px=0;px<W;px+=2){
+      const X = sx(px), Y = sy(py);
+      const ndx = (X-cx)/rx, ndy=(Y-cy)/ry;
+      const d2 = ndx*ndx+ndy*ndy;
+      if(d2>1.0){
+        for(let oy=0;oy<2;oy++)for(let ox=0;ox<2;ox++){
+          const i=4*((py+oy)*W+(px+ox));
+          img.data[i+3]=0;
+        }
+        continue;
+      }
+      let num=0, den=0, snapped=null;
+      for(const p of points){
+        const dx=X-p.x, dy=Y-p.y, dd=dx*dx+dy*dy;
+        if(dd<1){snapped=p.v;break}
+        const w = 1/Math.pow(dd, power/2);
+        num += w*p.v; den += w;
+      }
+      const v = snapped!==null ? snapped : num/den;
+      let col;
+      if(state.mode==="compare") col = rampDiv(v/absMax);
+      else col = rampSeq(Math.max(0,v)/seqMax);
+      const edge = Math.max(0, 1 - Math.pow(d2,4));
+      const a = 0.78 * edge;
+      for(let oy=0;oy<2;oy++)for(let ox=0;ox<2;ox++){
+        const i=4*((py+oy)*W+(px+ox));
+        img.data[i]=col[0];img.data[i+1]=col[1];img.data[i+2]=col[2];
+        img.data[i+3]=Math.round(a*255);
+      }
+    }
+  }
+  ctx.putImageData(img,0,0);
+  ctx.filter = "blur(6px)";
+  ctx.drawImage(cnv,0,0);
+  ctx.filter = "none";
+}
+
+function fmt(n,d=1){return (n>=0?"+":"")+n.toFixed(d)}
+function fmtAbs(n,d=1){return n.toFixed(d)}
+
+function setSelected(ch){
+  state.selected = ch;
+  renderRanks();
+  renderDetail();
+  document.querySelectorAll(".selected-halo").forEach(e=>e.remove());
+  const rows = rowsForPatient(state.patient);
+  const r = rows.find(x=>x.channel===ch); if(!r) return;
+  const [x,y] = toCanvas(...POS[ch]);
+  const v = valueFor(r,state.mode);
+  const vals = rows.map(rr=>Math.abs(valueFor(rr,state.mode)));
+  const absMax = Math.max(...vals,1e-6);
+  const radius = 18 + 10 * Math.min(1, Math.abs(v)/absMax);
+  const g = document.getElementById("active-electrodes");
+  g.appendChild(svgEl("circle",{cx:x,cy:y,r:radius+4,class:"selected-halo"}));
+  document.getElementById("stage-title").textContent = `${state.patient} · ${ch} · ${AREA[ch]||""}`;
+}
+
+function renderDetail(){
+  const rows = rowsForPatient(state.patient);
+  const r = rows.find(x=>x.channel===state.selected) || rows[0];
+  state.selected = r.channel;
+  document.getElementById("dt-channel").textContent = r.channel;
+  document.getElementById("dt-idx").textContent = "CH "+String(r.channel_index).padStart(2,"0");
+  document.getElementById("dt-area").textContent = AREA[r.channel]||"—";
+
+  const pre = r.contribution_pp_positive_pre;
+  const post = r.contribution_pp_positive_post;
+  const delta = r.contribution_change_pp;
+  document.getElementById("dt-pre").textContent = fmtAbs(pre,1);
+  document.getElementById("dt-post").textContent = fmtAbs(post,1);
+  document.getElementById("dt-pre-sub").textContent = "norm "+(r.contribution_norm_pre).toFixed(2);
+  document.getElementById("dt-post-sub").textContent = "norm "+(r.contribution_norm_post).toFixed(2);
+
+  const dEl = document.getElementById("dt-delta");
+  dEl.textContent = fmt(delta,2)+" pp";
+  dEl.className = "num " + (delta>=0?"pos":"neg");
+  const arrow = document.getElementById("dt-arrow");
+  arrow.textContent = delta>=0 ? "↗" : "↘";
+  arrow.style.color = delta>=0 ? "var(--compare-pos)" : "var(--compare-neg)";
+
+  const dir = delta>=0?"strengthened":"weakened";
+  const mag = Math.abs(delta);
+  const tone = mag<2 ? "barely shifted" : mag<6 ? "moved meaningfully" : "shifted decisively";
+  const ranks = rowsForPatient(state.patient).slice().sort((a,b)=>valueFor(b,state.mode)-valueFor(a,state.mode));
+  const rankIdx = ranks.findIndex(x=>x.channel===r.channel)+1;
+  document.getElementById("dt-narrative").textContent =
+    `${r.channel} ${tone} between sessions: contribution ${dir} by ${fmtAbs(mag,2)} pp. ` +
+    `Currently ranked #${rankIdx} for ${state.patient} in ${state.mode.toUpperCase()}.`;
+}
+
+function renderRanks(){
+  const rows = rowsForPatient(state.patient).slice();
+  rows.sort((a,b)=>valueFor(b,state.mode)-valueFor(a,state.mode));
+  const max = Math.max(...rows.map(r=>Math.abs(valueFor(r,state.mode))),1e-6);
+  const wrap = document.getElementById("ranks");
+  wrap.replaceChildren();
+  rows.forEach((r,i)=>{
+    const v = valueFor(r,state.mode);
+    let color;
+    if(state.mode==="compare") color = rampDiv(v/max);
+    else color = rampSeq(Math.max(0,v)/max);
+    const row = document.createElement("div");
+    row.className = "rank";
+    const idx = document.createElement("div"); idx.className="idx"; idx.textContent = String(i+1).padStart(2,"0");
+    const ch = document.createElement("div"); ch.className="ch"; ch.textContent = r.channel;
+    const bar = document.createElement("div"); bar.className="bar";
+    const fill = document.createElement("i");
+    fill.style.width = Math.max(4,Math.min(100,Math.abs(v)/max*100)) + "%";
+    fill.style.background = rgb(color);
+    bar.appendChild(fill);
+    const val = document.createElement("div"); val.className="val"; val.textContent = fmt(v,1);
+    row.append(idx,ch,bar,val);
+    row.addEventListener("click",()=>{ state.selected=r.channel; renderAll() });
+    row.addEventListener("mouseenter",()=>setSelected(r.channel));
+    wrap.appendChild(row);
+  });
+  document.getElementById("rk-mode-label").textContent =
+    state.mode==="compare" ? "Δ POST−PRE" : state.mode.toUpperCase();
+}
+
+function renderHeader(){
+  document.getElementById("hm-patient").textContent = state.patient;
+  document.getElementById("hm-session").textContent = state.mode.toUpperCase();
+  const rows = rowsForPatient(state.patient);
+  const top = rows.slice().sort((a,b)=>valueFor(b,state.mode)-valueFor(a,state.mode))[0];
+  document.getElementById("hm-top").textContent = top.channel;
+  const baselinePre = rows[0].baseline_accuracy_percent_pre;
+  const baselinePost = rows[0].baseline_accuracy_percent_post;
+  document.getElementById("kpi-pre").textContent = baselinePre.toFixed(1)+"%";
+  document.getElementById("kpi-post").textContent = baselinePost.toFixed(1)+"%";
+  document.getElementById("stage-meta").textContent =
+    `PATIENT ${state.patient} · ${state.mode.toUpperCase()} · 16 RECORDED CHANNELS`;
+
+  const lab = document.getElementById("lg-label");
+  const ramp = document.getElementById("lg-ramp");
+  const lmin = document.getElementById("lg-min");
+  const lmax = document.getElementById("lg-max");
+  const lmid = document.getElementById("lg-mid");
+  const vals = rows.map(r=>valueFor(r,state.mode));
+  if(state.mode==="compare"){
+    lab.textContent = "Channel change · Δpp (POST − PRE)";
+    ramp.classList.add("div");
+    const m = Math.max(...vals.map(Math.abs)).toFixed(0);
+    lmin.textContent = `−${m} pp`; lmax.textContent = `+${m} pp`; lmid.textContent="0";
+  } else {
+    lab.textContent = `Channel contribution · ${state.mode.toUpperCase()} (Δpp)`;
+    ramp.classList.remove("div");
+    lmin.textContent = "0";
+    lmax.textContent = "+"+Math.max(...vals).toFixed(0)+" pp";
+    lmid.textContent = "·";
+  }
+}
+
+function renderAll(){
+  renderTopo();
+  renderActive();
+  renderRanks();
+  renderHeader();
+  renderDetail();
+}
+
+function wire(){
+  document.querySelectorAll("#seg-patient button").forEach(b=>{
+    b.addEventListener("click",()=>{
+      document.querySelectorAll("#seg-patient button").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on"); state.patient=b.dataset.p; renderAll();
+    });
+  });
+  document.querySelectorAll("#seg-mode button").forEach(b=>{
+    b.addEventListener("click",()=>{
+      document.querySelectorAll("#seg-mode button").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on"); state.mode=b.dataset.mode; renderAll();
+    });
+  });
+}
+
+(async function(){
+  await loadData();
+  buildBaseElectrodes();
+  wire();
+  renderAll();
+})();
+</script>
+</body>
+</html>
